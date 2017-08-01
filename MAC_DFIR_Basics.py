@@ -53,8 +53,12 @@ def get_args():
 	return cfg
 
 def get_disks_partitions():
-
-
+	partitions = ''
+	for files in os.listdir('/dev'):
+		if files.startswith("disk"):
+			partitions += subprocess.check_output(['diskutil', 'info', '/dev/'+files])
+		else:
+			pass
 
 def get_basic_device_info():
 	#Grab basic software information (System Version, Computer Name, User Name)
