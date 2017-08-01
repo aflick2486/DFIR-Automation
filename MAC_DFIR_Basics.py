@@ -3,20 +3,27 @@
 import os
 import sys
 import subprocess
+import re
 from getopt import getopt, GetoptError
 
-version = "0.1"
+version = "0.3.1"
 
 def usage():
 	print """MAC DFIR Basics v%s
 
 usage: %s --mount <mount_dir>
 
--u [username], --username [username]
-	Specify a user
+-b, --browser
+	Gather web browser information (history, extensions)
+
+-e, --emails
+	Gather email information (From, Subject, Timestamp)
 
 -m [path], --mount [path]
 	Specify the mount point of the Mac OS Filesystem
+
+-u [username], --username [username]
+	Specify a username. DEFAULT is all users
 
 """%(version,sys.argv[0])
 
@@ -25,7 +32,7 @@ def get_args():
 		usage()
 		sys.exit(0)
 	try:
-		opts, args = getopt(sys.argv[1:], 'mu:h', ["mount=", "username=", "help"])
+		opts, args = getopt(sys.argv[1:], 'mu:he', ["mount=", "username=", "help", "emails"])
 
 	except GetoptError as err:
 		sys.stdout.write(str(err))
@@ -36,6 +43,7 @@ def get_args():
 		cfg = {}
 		cfg['mount'] = "/"
 		cfg['username'] = "*"
+		cfg['emails'] = False
 		if o in ("-h", "--help"):
 			usage()
 			sys.exit(0)
@@ -43,6 +51,8 @@ def get_args():
 			cfg['username'] = a
 		elif o in ("-m", "--mount"):
 			cfg['mount'] = a
+		elif o in ("-e", "--emails"):
+			cfg['emails'] = True
 
 	if os.path.isdir(cfg["mount_dir"]):
 		cfg["mount_dir"] = os.path.abspath(cfg["mount_dir"])
@@ -90,7 +100,7 @@ def browser_info():
 	if os.path.isfile('/Applications/Google Chrome.app'):
 		chrome_history = ''
 		chrome_ext = ''
-		chrome_ext += subprocess.check_output(['ls', '/Users/*/Library/Application\ Support/Google/Chrome/Default/Extensions'])
+		chrome_ext += subprocess.check_output(['ls', '/Users/'+username'/Library/Application\ Support/Google/Chrome/Default/Extensions'])
 
 	#List all Firefox Extensions and History
 	elif os.path.isfile('/Applications/Firefox.app'):
@@ -103,3 +113,31 @@ def browser_info():
 		safari_ext = ''
 
 def get_downloaded_files():
+
+
+def get_emails(emails):
+	emails = ''
+	rootdir = "/Users/"+username+"/Library/Mail"
+
+	for subdir, dirs, files in os.walk(rootdir):
+		for file in files:
+			if "[Gmail]" in subdir:
+				if ".emlx" in file:
+					print file
+					with open(os.path.join(subdir, file), "r") as email:
+						for line in email:
+							match = re.compile('From: (.*)')
+							email_from = match.match(line)
+							if email_from:
+								print email_from.group()
+							else:
+								pass
+							match = re.compile('Date: (.*)')
+							timestamp = match.match(line)
+							if timestamp:
+								print timestamp.group()
+							match = re.compile('Subject: (.*)')
+							subject = match.match(line)
+							if subject:
+								print subject.group()
+					print "\n----------------------------------\n"
