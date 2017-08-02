@@ -214,3 +214,8 @@ def get_emails(emails):
 							if subject:
 								print subject.group()
 					print "\n----------------------------------\n"
+
+
+def get_bash_history():
+	bash_history = ''
+	bash_history += subprocess.check_output(['cat', '/Users/*/.bash_history'])
