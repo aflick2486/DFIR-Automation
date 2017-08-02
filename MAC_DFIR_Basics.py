@@ -8,7 +8,7 @@ import re
 import sqlite3
 from getopt import getopt, GetoptError
 
-version = "0.5.1"
+version = "1.0.1"
 
 def usage():
 	print """MAC DFIR Basics v%s
@@ -136,7 +136,7 @@ def get_browser_info(username, mount):
 	if os.path.isfile(mount+'Applications/Google Chrome.app'):
 		chrome_history = ''
 		chrome_ext = ''
-		chrome_ext += subprocess.check_output(['ls', mount+'Users/'+username'/Library/Application\ Support/Google/Chrome/Default/Extensions'])
+		chrome_ext += subprocess.check_output(['ls', mount+'Users/'+username+'/Library/Application\ Support/Google/Chrome/Default/Extensions'])
 		conn = None
 
 		try:
@@ -159,7 +159,7 @@ def get_browser_info(username, mount):
 	elif os.path.isfile(mount+'Applications/Firefox.app'):
 			firefox_history = ''
 			firefox_ext = ''
-			firefox_ext += subprocess.check_output(['ls', mount+'Users/'+username'/Library/Application\ Support/Firefox/Profiles/*/extensions'])
+			firefox_ext += subprocess.check_output(['ls', mount+'Users/'+username+'/Library/Application\ Support/Firefox/Profiles/*/extensions'])
 			conn = None
 
 			try:
@@ -182,7 +182,7 @@ def get_browser_info(username, mount):
 	elif os.path.isfile(mount+'Applications/Safari.app'):
 			safari_history = ''
 			safari_ext = ''
-			for file in os.listdir(mount+'Users/'+username'/Library/Safari/Extensions'):
+			for file in os.listdir(mount+'Users/'+username+'/Library/Safari/Extensions'):
 				if '.safariextz' in file:
 					safari_ext += file +"\n"
 			conn = None
@@ -259,7 +259,7 @@ def get_bash_history(username, mount):
 if __name__ == '__main__':
 	cfg = get_args()
 	results = ''
-	
+
 	if cfg['browser']:
 		results += "Browser Information\n"
 		results += "------------------------------------\n"
