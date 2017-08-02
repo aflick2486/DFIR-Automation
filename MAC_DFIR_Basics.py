@@ -124,7 +124,7 @@ def browser_info():
 	elif os.path.isfile('/Applications/Firefox.app'):
 		firefox_history = ''
 		firefox_ext = ''
-		chrome_ext += subprocess.check_output(['ls', '/Users/'+username'/Library/Application\ Support/Mozilla/Extensions'])
+		firefox_ext += subprocess.check_output(['ls', '/Users/'+username'/Library/Application\ Support/Firefox/Profiles/*/extensions'])
 		conn = None
 
 		try:
@@ -136,7 +136,7 @@ def browser_info():
 			rows = cur.fetchall()
 
 			for row in rows:
-				chrome_history += row + "\n"
+				firefox_history += row + "\n"
 		except sqlite3.Error as e:
 			print e
 		finally:
@@ -147,6 +147,27 @@ def browser_info():
 	elif os.path.isfile('/Applications/Safari.app'):
 		safari_history = ''
 		safari_ext = ''
+		for file in os.listdir('/Users/'+username'/Library/Safari/Extensions'):
+			if '.safariextz' in file:
+				safari_ext += file +"\n"
+		conn = None
+
+		try:
+			conn = sqlite3.connect("/Users/"+username+"/Library/Safari/History.db")
+
+			cur = conn.cursor()
+			cur.execute("SELECT history_visits.visit_time, history_items.url, history_visits.title FROM history_visits, history_items WHERE history_items.id = history_visits.history_item ORDER BY history_visits.visit_time ASC")
+
+			rows = cur.fetchall()
+
+			for row in rows:
+				safari_history += row + "\n"
+		except sqlite3.Error as e:
+			print e
+		finally:
+			if conn:
+				conn.close()
+
 
 def get_downloaded_files():
 	downloads = ""
