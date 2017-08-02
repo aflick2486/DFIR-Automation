@@ -4,6 +4,7 @@ import os
 import sys
 import subprocess
 import re
+import sqlite3
 from getopt import getopt, GetoptError
 
 version = "0.3.1"
@@ -101,6 +102,23 @@ def browser_info():
 		chrome_history = ''
 		chrome_ext = ''
 		chrome_ext += subprocess.check_output(['ls', '/Users/'+username'/Library/Application\ Support/Google/Chrome/Default/Extensions'])
+		conn = None
+
+		try:
+			conn = sqlite3.connect("/Users/"+username+"/Library/Application\ Support/Google/Chrome/Default/History")
+
+			cur = conn.cursor()
+			cur.execute("SELECT urls.last_visit_time, urls.url, urls.title FROM urls, visits WHERE urls.id = visits.url ORDER BY visits.visit_time ASC")
+
+			rows = cur.fetchall()
+
+			for row in rows:
+				chrome_history += row + "\n"
+		except sqlite3.Error as e:
+			print e
+		finally:
+			if conn:
+				conn.close()
 
 	#List all Firefox Extensions and History
 	elif os.path.isfile('/Applications/Firefox.app'):
@@ -113,6 +131,22 @@ def browser_info():
 		safari_ext = ''
 
 def get_downloaded_files():
+	downloads = ""
+	path = os.path.join("Users", username, "Library", "Preferences", "com.apple.LaunchServices.QuarantineEventsV2")
+	conn = None
+	try:
+		conn = sqlite3.connect(path)
+		cur = conn.cursor()
+		cur.execute("SELECT LSQuarantineDataURLString FROM LSQuarantineEvent")
+		rows = cur.fetchall()
+		for row in rows:
+			downloads += row + "\n"
+
+	except sqlite3.Error as e:
+		print e
+	finally:
+		if conn:
+			conn.close()
 
 
 def get_emails(emails):
