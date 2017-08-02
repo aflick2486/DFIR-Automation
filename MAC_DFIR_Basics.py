@@ -124,6 +124,24 @@ def browser_info():
 	elif os.path.isfile('/Applications/Firefox.app'):
 		firefox_history = ''
 		firefox_ext = ''
+		chrome_ext += subprocess.check_output(['ls', '/Users/'+username'/Library/Application\ Support/Mozilla/Extensions'])
+		conn = None
+
+		try:
+			conn = sqlite3.connect("/Users/"+username+"/Library/Application\ Support/Firefox/Profiles/*/places.sqlite")
+
+			cur = conn.cursor()
+			cur.execute("SELECT moz_historyvisits.visit_date, moz_places.url, moz_places.title, moz_places.rev_host FROM moz_places, moz_historyvisits WHERE moz_places.id = moz_historyvisits.place_id ORDER BY moz_historyvisits.visit_date ASC")
+
+			rows = cur.fetchall()
+
+			for row in rows:
+				chrome_history += row + "\n"
+		except sqlite3.Error as e:
+			print e
+		finally:
+			if conn:
+				conn.close()
 
 	#List all Safari Extensions and History
 	elif os.path.isfile('/Applications/Safari.app'):
