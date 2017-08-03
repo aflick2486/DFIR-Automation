@@ -422,23 +422,23 @@ def get_emails(username, mount):
 					if "[Gmail]" in subdir:
 						if ".emlx" in file:
 							emails += "\n-------------------\n"
-							emails += file
+							emails += os.path.join(subdir, file) + "\n"
 							with open(os.path.join(subdir, file), "r") as email:
 								for line in email:
 									match = re.compile('From: (.*)')
 									email_from = match.match(line)
 									if email_from:
-										emails += email_from.group()
+										emails += email_from.group() + "\n"
 									else:
 										pass
 									match = re.compile('Date: (.*)')
 									timestamp = match.match(line)
 									if timestamp:
-										emails += timestamp.group()
+										emails += timestamp.group() + "\n"
 									match = re.compile('Subject: (.*)')
 									subject = match.match(line)
 									if subject:
-										emails += subject.group()
+										emails += subject.group() + "\n"
 	elif isinstance(username, basestring):
 		rootdir = mount+"Users/"+username+"/Library/Mail"
 		for subdir, dirs, files in os.walk(rootdir):
@@ -446,23 +446,23 @@ def get_emails(username, mount):
 				if "[Gmail]" in subdir:
 					if ".emlx" in file:
 						emails += "\n-------------------\n"
-						emails += file
+						emails += os.path.join(subdir, file) + "\n"
 						with open(os.path.join(subdir, file), "r") as email:
 							for line in email:
 								match = re.compile('From: (.*)')
 								email_from = match.match(line)
 								if email_from:
-									emails += email_from.group()
+									emails += email_from.group() + "\n"
 								else:
 									pass
 								match = re.compile('Date: (.*)')
 								timestamp = match.match(line)
 								if timestamp:
-									emails += timestamp.group()
+									emails += timestamp.group() + "\n"
 								match = re.compile('Subject: (.*)')
 								subject = match.match(line)
 								if subject:
-									emails += subject.group()
+									emails += subject.group() + "\n"
 
 	emails += "\n\n\n"
 	return emails
