@@ -471,11 +471,13 @@ def get_bash_history(username, mount):
 	bash_history = ''
 	if isinstance(username, list):
 		for user in username:
-			bash_history += subprocess.check_output(['cat', mount+'Users/'+username+'/.bash_history'])
-			bash_history += "\n\n\n"
+			if os.path.isfile(mount+'Users/'+user+'/.bash_history'):
+				bash_history += str(subprocess.check_output(['cat', mount+'Users/'+user+'/.bash_history']))
+				bash_history += "\n\n\n"
 	elif isinstance(username, basestring):
-		bash_history += subprocess.check_output(['cat', mount+'Users/'+username+'/.bash_history'])
-		bash_history += "\n\n\n"
+		if os.path.isfile(mount+'Users/'+user+'/.bash_history'):
+			bash_history += str(subprocess.check_output(['cat', mount+'Users/'+username+'/.bash_history']))
+			bash_history += "\n\n\n"
 	return bash_history
 
 
