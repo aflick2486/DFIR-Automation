@@ -20,8 +20,8 @@ Specify all artifacts that you would like to gather. Does nothing by default.
 -b, --browser
 	Gather web browser information (history, extensions)
 
--d, --disk
-	Gather information about disks and partitions
+-d, --downloads
+	Gather information about downloaded files
 
 -e, --emails
 	Gather email information (From, Subject, Timestamp)
@@ -34,6 +34,9 @@ Specify all artifacts that you would like to gather. Does nothing by default.
 
 -o, --other
 	Gather basic device software and hardware information
+
+-p, --partitions
+	Gather information about disks and partitions
 
 -s, --startup
 	Gather startup item information (LaunchAgents, LaunchDaemons, StartupItems)
@@ -56,7 +59,7 @@ def get_args():
 		usage()
 		sys.exit(0)
 	try:
-		opts, args = getopt(sys.argv[1:], 'mu:hedobs', ["mount=", "username=", "history", "emails", "disk", "other", "browser", "startup"])
+		opts, args = getopt(sys.argv[1:], 'mu:hedobsp', ["mount=", "username=", "history", "emails", "downloads", "other", "browser", "startup", "partitions"])
 
 	except GetoptError as err:
 		sys.stdout.write(str(err))
@@ -70,9 +73,10 @@ def get_args():
 		cfg['history'] = False
 		cfg['emails'] = False
 		cfg['browser'] = False
-		cfg['disk'] = False
+		cfg['partitions'] = False
 		cfg['startup'] = False
 		cfg['other'] = False
+		cfg['downloads'] = False
 		if o in ("-h", "--history"):
 			cfg['history'] = True
 		elif o in ("-u", "--username"):
@@ -83,12 +87,14 @@ def get_args():
 			cfg['emails'] = True
 		elif o in ("-b", "--browser"):
 			cfg['browser'] = True
-		elif o in ("-d", "--disk"):
-			cfg['disk'] = True
+		elif o in ("-d", "--downloads"):
+			cfg['downloads'] = True
 		elif o in ("-s", "--startup"):
 			cfg['startup'] = True
 		elif o in ("-o", "--other"):
 			cfg['other'] = True
+		elif o in ("-p", "--partitions"):
+			cfg['partitions'] = True
 
 	if os.path.isdir(cfg["mount"]):
 		cfg["mount"] = os.path.abspath(cfg["mount"])
@@ -143,9 +149,13 @@ def get_launch_start_items(username, mount):
 	launch_agents += subprocess.check_output(['ls', '-la', mount+'System/Library/LaunchAgents'])
 	if isinstance(username, list):
 		for user in username:
-			launch_agents += subprocess.check_output(['ls', '-la', mount+'Users/'+user+'/Library/LaunchAgents'])
+			if os.path.isdir(mount+'Users/'+user+'/Library/LaunchAgents'):
+				launch_agents += user + "\n"
+				launch_agents += subprocess.check_output(['ls', '-la', mount+'Users/'+user+'/Library/LaunchAgents'])
 	elif isinstance(username, basestring):
-		launch_agents += subprocess.check_output(['ls', '-la', mount+'Users/'+username+'/Library/LaunchAgents'])
+		if os.path.isdir(mount+'Users/'+username+'/Library/LaunchAgents'):
+			launch_agents += user + "\n"
+			launch_agents += subprocess.check_output(['ls', '-la', mount+'Users/'+username+'/Library/LaunchAgents'])
 
 	#List files that run at boot
 	launch_daemons = ''
@@ -490,10 +500,10 @@ if __name__ == '__main__':
 		results += "------------------------------------\n"
 		results += get_browser_info(cfg['username'], cfg['mount'])
 		results += "\n------------------------------------\n\n"
-	if cfg['disk']:
-		results += "Disk and Partition Information\n"
+	if cfg['downloads']:
+		results += "Downloaded Files Information\n"
 		results += "------------------------------------\n"
-		results += get_disks_partitions(cfg['username'], cfg['mount'])
+		results += get_downloaded_files(cfg['username'], cfg['mount'])
 		results += "\n------------------------------------\n\n"
 	if cfg['emails']:
 		results += "Email Information\n"
@@ -509,6 +519,11 @@ if __name__ == '__main__':
 		results += "Basic Device Software and Hardware Information\n"
 		results += "------------------------------------\n"
 		results += get_basic_device_info()
+		results += "\n------------------------------------\n\n"
+	if cfg['partitions']:
+		results += "Disk and Partition Information\n"
+		results += "------------------------------------\n"
+		results += get_disks_partitions(cfg['username'], cfg['mount'])
 		results += "\n------------------------------------\n\n"
 	if cfg['startup']:
 		results += "Startup Items Information\n"
