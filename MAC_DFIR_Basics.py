@@ -108,9 +108,10 @@ def get_args():
 
 def get_disks_partitions(username, mount):
 	partitions = ''
-	for files in os.listdir(mount+'/dev'):
+	for files in os.listdir(mount+'dev'):
 		if files.startswith("disk"):
-			partitions += subprocess.check_output(['diskutil', 'info', mount+'/dev/'+files])
+			partitions += subprocess.check_output(['diskutil', 'info', mount+'dev/'+files])
+			partitions += "----------------\n"
 		else:
 			pass
 
