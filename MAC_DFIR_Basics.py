@@ -17,6 +17,9 @@ usage: sudo python %s --mount <mount_dir>
 
 Specify all artifacts that you would like to gather. Does nothing by default.
 
+-a, --all
+	Gather all artifact information
+
 -b, --browser
 	Gather web browser information (history, extensions)
 
@@ -59,7 +62,7 @@ def get_args():
 		usage()
 		sys.exit(0)
 	try:
-		opts, args = getopt(sys.argv[1:], 'mu:hedobsp', ["mount=", "username=", "history", "emails", "downloads", "other", "browser", "startup", "partitions"])
+		opts, args = getopt(sys.argv[1:], 'mu:ahedobsp', ["mount=", "username=", "all", "history", "emails", "downloads", "other", "browser", "startup", "partitions"])
 
 	except GetoptError as err:
 		sys.stdout.write(str(err))
@@ -77,7 +80,15 @@ def get_args():
 		cfg['startup'] = False
 		cfg['other'] = False
 		cfg['downloads'] = False
-		if o in ("-h", "--history"):
+		if o in ("-a", "--all"):
+			cfg['browser'] = True
+			cfg['downloads'] = True
+			cfg['emails'] = True
+			cfg['history'] = True
+			cfg['other'] = True
+			cfg['partitions'] = True
+			cfg['startup'] = True
+		elif o in ("-h", "--history"):
 			cfg['history'] = True
 		elif o in ("-u", "--username"):
 			cfg['username'] = a
@@ -145,27 +156,27 @@ def get_basic_device_info():
 def get_launch_start_items(username, mount):
 	#List files that run at login
 	launch_agents = ''
-	launch_agents += subprocess.check_output(['ls', '-la', mount+'Library/LaunchAgents'])
-	launch_agents += subprocess.check_output(['ls', '-la', mount+'System/Library/LaunchAgents'])
+	launch_agents += subprocess.check_output(['ls', '-la', mount+'Library/LaunchAgents']) + "\n"
+	launch_agents += subprocess.check_output(['ls', '-la', mount+'System/Library/LaunchAgents']) + "\n"
 	if isinstance(username, list):
 		for user in username:
 			if os.path.isdir(mount+'Users/'+user+'/Library/LaunchAgents'):
 				launch_agents += user + "\n"
-				launch_agents += subprocess.check_output(['ls', '-la', mount+'Users/'+user+'/Library/LaunchAgents'])
+				launch_agents += subprocess.check_output(['ls', '-la', mount+'Users/'+user+'/Library/LaunchAgents']) + "\n"
 	elif isinstance(username, basestring):
 		if os.path.isdir(mount+'Users/'+username+'/Library/LaunchAgents'):
 			launch_agents += user + "\n"
-			launch_agents += subprocess.check_output(['ls', '-la', mount+'Users/'+username+'/Library/LaunchAgents'])
+			launch_agents += subprocess.check_output(['ls', '-la', mount+'Users/'+username+'/Library/LaunchAgents']) + "\n"
 
 	#List files that run at boot
 	launch_daemons = ''
-	launch_daemons += subprocess.check_output(['ls', '-la', mount+'Library/LaunchDaemons'])
-	launch_daemons += subprocess.check_output(['ls', '-la', mount+'System/Library/LaunchDaemons'])
+	launch_daemons += subprocess.check_output(['ls', '-la', mount+'Library/LaunchDaemons']) + "\n"
+	launch_daemons += subprocess.check_output(['ls', '-la', mount+'System/Library/LaunchDaemons']) + "\n"
 
 	#List other files that run on startup
 	startup = ''
-	startup += subprocess.check_output(['ls', '-la', mount+'Library/StartupItems'])
-	startup += subprocess.check_output(['ls', '-la', mount+'System/Library/StartupItems'])
+	startup += subprocess.check_output(['ls', '-la', mount+'Library/StartupItems']) + "\n"
+	startup += subprocess.check_output(['ls', '-la', mount+'System/Library/StartupItems']) + "\n"
 
 	results = "Launch Agents\n"
 	results += "----------------\n"
@@ -207,7 +218,7 @@ def get_browser_info(username, mount):
 						for row in rows:
 							chrome_history += str(row) + "\n"
 					except sqlite3.Error as e:
-						print "Chrome Error: %s" % e
+						print "Chrome Error: %s for %s" %(e, user)
 					finally:
 						if conn:
 							conn.close()
@@ -228,7 +239,7 @@ def get_browser_info(username, mount):
 					for row in rows:
 						chrome_history += str(row) + "\n"
 				except sqlite3.Error as e:
-					print "Chrome Error: %s" % e
+					print "Chrome Error: %s for %s" %(e, username)
 				finally:
 					if conn:
 						conn.close()
@@ -240,7 +251,6 @@ def get_browser_info(username, mount):
 			if isinstance(username, list):
 				for user in username:
 					if os.path.isdir(mount+'Users/'+user+'/Library/Application Support/Firefox/Profiles/'):
-						print "OK"
 						profiles = os.listdir(mount+'Users/'+user+'/Library/Application Support/Firefox/Profiles/')
 						firefox_ext += user + "\n"
 						firefox_history += user + "\n"
@@ -262,7 +272,7 @@ def get_browser_info(username, mount):
 										for row in rows:
 											firefox_history += str(row) + "\n"
 									except sqlite3.Error as e:
-										print "Firefox Error: %s" % e
+										print "Firefox Error: %s for %s" %(e, user)
 									finally:
 										if conn:
 											conn.close()
@@ -289,7 +299,7 @@ def get_browser_info(username, mount):
 									for row in rows:
 										firefox_history += str(row) + "\n"
 								except sqlite3.Error as e:
-									print "Firefox Error: %s" % e
+									print "Firefox Error: %s for %s" %(e, username)
 								finally:
 									if conn:
 										conn.close()
@@ -319,7 +329,7 @@ def get_browser_info(username, mount):
 							for row in rows:
 								safari_history += str(row) + "\n"
 						except sqlite3.Error as e:
-							print "Safari Error: %s" % e
+							print "Safari Error: %s for %s" %(e, user)
 						finally:
 							if conn:
 								conn.close()
@@ -342,7 +352,7 @@ def get_browser_info(username, mount):
 						for row in rows:
 							safari_history += str(row) + "\n"
 					except sqlite3.Error as e:
-						print "Safari Error: %s" % e
+						print "Safari Error: %s for %s" %(e, username)
 					finally:
 						if conn:
 							conn.close()
@@ -384,40 +394,44 @@ def get_downloaded_files(username, mount):
 	if isinstance(username, list):
 		for user in username:
 			path = os.path.join(mount, "Users", user, "Library", "Preferences", "com.apple.LaunchServices.QuarantineEventsV2")
+			if os.path.isfile(path):
+				conn = None
+				try:
+					conn = sqlite3.connect(path)
+					cur = conn.cursor()
+					cur.execute("SELECT datetime(LSQuarantineTimeStamp + 978307200,'unixepoch','localtime'), LSQUarantineDataURLString FROM LSQuarantineEvent ORDER BY LSQuarantineTimeStamp ASC")
+					rows = cur.fetchall()
+					downloads += user + ":\n"
+					for row in rows:
+						downloads += str(row) + "\n"
+
+				except sqlite3.Error as e:
+					e = e
+				finally:
+					if conn:
+						conn.close()
+
+				downloads += "\n\n"
+	elif isinstance(username, basestring):
+		path = os.path.join(mount, "Users", username, "Library", "Preferences", "com.apple.LaunchServices.QuarantineEventsV2")
+		if os.path.isfile(path):
 			conn = None
 			try:
 				conn = sqlite3.connect(path)
 				cur = conn.cursor()
-				cur.execute("SELECT LSQuarantineDataURLString FROM LSQuarantineEvent")
+				cur.execute("SELECT datetime(LSQuarantineTimeStamp + 978307200,'unixepoch','localtime'), LSQUarantineDataURLString FROM LSQuarantineEvent ORDER BY LSQuarantineTimeStamp ASC")
 				rows = cur.fetchall()
+				downloads += user + ":\n"
 				for row in rows:
-					downloads += row + "\n"
+					downloads += str(row) + "\n"
 
 			except sqlite3.Error as e:
-				print e
+				e = e
 			finally:
 				if conn:
 					conn.close()
 
 			downloads += "\n\n"
-	elif isinstance(username, basestring):
-		path = os.path.join(mount, "Users", username, "Library", "Preferences", "com.apple.LaunchServices.QuarantineEventsV2")
-		conn = None
-		try:
-			conn = sqlite3.connect(path)
-			cur = conn.cursor()
-			cur.execute("SELECT LSQuarantineDataURLString FROM LSQuarantineEvent")
-			rows = cur.fetchall()
-			for row in rows:
-				downloads += row + "\n"
-
-		except sqlite3.Error as e:
-			print e
-		finally:
-			if conn:
-				conn.close()
-
-		downloads += "\n\n"
 
 	return downloads
 
