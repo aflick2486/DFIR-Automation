@@ -1,125 +1,96 @@
 #! /usr/bin/env python
 
+import argparse
 import datetime
 import os
 import sys
 import subprocess
 import re
 import sqlite3
-from getopt import getopt, GetoptError
 
 version = "1.0.1"
 
-def usage():
-	print """MAC DFIR Basics v%s
-
-usage: sudo python %s --mount <mount_dir>
-
-Specify all artifacts that you would like to gather. Does nothing by default.
-
--a, --all
-	Gather all artifact information
-
--b, --browser
-	Gather web browser information (history, extensions)
-
--d, --downloads
-	Gather information about downloaded files
-
--e, --emails
-	Gather email information (From, Subject, Timestamp)
-
--h, --history,
-	Gather bash history information
-
--m [path], --mount [path]
-	Specify the mount point of the Mac OS Filesystem
-
--o, --other
-	Gather basic device software and hardware information
-
--p, --partitions
-	Gather information about disks and partitions
-
--s, --startup
-	Gather startup item information (LaunchAgents, LaunchDaemons, StartupItems)
-
--u [username], --username [username]
-	Specify a username. DEFAULT is all users
-
-Examples:
-
-$sudo python MAC_DFIR_Basics.py -bdeh
-	Gathers information about browser history, disks and partitions, emails, and bash history
-
-$sudo python MAC_DFIR_Basics.py -bdeh -m /mnt/mac/ -u root
-	Gathers the information from the /mnt/mac/ directory for the root user
-
-"""%(version,sys.argv[0])
-
 def get_args():
+	cfg = {}
+
+	parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
+		description=("""\
+-----------------------
+ Mac OS DFIR Basics
+ Author: Adam Flickema
+-----------------------
+Specify all artifacts that you would like to gather. Does nothing by default."""))
+
+	parser.add_argument('-a', '--all', action='store_true', dest='all', default=False,
+						help='Gather all artifact information')
+
+	parser.add_argument('-b', '--browser', action='store_true', dest='browser', default=False,
+						help='Gather web browser information (history, extensions)')
+
+	parser.add_argument('-c', '--commandhist', action='store_true', dest='bash_history', default=False,
+						help="Gather bash history information")
+
+	parser.add_argument('-d', '--downloads', action='store_true', dest='downloads', default=False,
+						help="Gather information about downloaded files")
+
+	parser.add_argument('-e', '--emails', action='store_true', dest='emails', default=False,
+						help="Gather email information (From, Subject, Timestamp)")
+
+	parser.add_argument('-m', '--mount', action='store', dest='mount_point', default="/",
+						help="Specify the mount point of the Mac OS Filesystem. Default is / .")
+
+	parser.add_argument('-o', '--other', action='store_true', dest='system_info', default=False,
+						help="Gather basic device software and hardware information")
+
+	parser.add_argument('-p', '--partitions', action='store_true', dest='disk_parts', default=False,
+						help="Gather information about disks and partitions")
+
+	parser.add_argument('-s', '--startup', action='store_true', dest="startup", default=False,
+						help="Gather startup item information (LaunchAgents, LaunchDaemons, StartupItems)")
+
+	parser.add_argument('-u', '--username', action='store', dest='username', default="",
+						help="Specify a username. Default is all users.")
+
+	results = parser.parse_args()
+
 	if len(sys.argv[1:]) == 0:
-		usage()
+		parser.print_help()
+		parser.exit()
 		sys.exit(0)
-	try:
-		opts, args = getopt(sys.argv[1:], 'mu:ahedobsp', ["mount=", "username=", "all", "history", "emails", "downloads", "other", "browser", "startup", "partitions"])
 
-	except GetoptError as err:
-		sys.stdout.write(str(err))
-		usage()
-		sys.exit(2)
+	if results.all == True:
+		cfg['browser'] = True
+		cfg['downloads'] = True
+		cfg['emails'] = True
+		cfg['history'] = True
+		cfg['other'] = True
+		cfg['partitions'] = True
+		cfg['startup'] = True
+	else:
+		cfg['browser'] = results.browser
+		cfg['downloads'] = results.downloads
+		cfg['emails'] = results.emails
+		cfg['history'] = results.bash_history
+		cfg['other'] = results.system_info
+		cfg['partitions'] = results.disk_parts
+		cfg['startup'] = results.startup
 
-	for o, a in opts:
-		cfg = {}
-		cfg['mount'] = "/"
-		cfg['username'] = ''
-		cfg['history'] = False
-		cfg['emails'] = False
-		cfg['browser'] = False
-		cfg['partitions'] = False
-		cfg['startup'] = False
-		cfg['other'] = False
-		cfg['downloads'] = False
-		if o in ("-a", "--all"):
-			cfg['browser'] = True
-			cfg['downloads'] = True
-			cfg['emails'] = True
-			cfg['history'] = True
-			cfg['other'] = True
-			cfg['partitions'] = True
-			cfg['startup'] = True
-		elif o in ("-h", "--history"):
-			cfg['history'] = True
-		elif o in ("-u", "--username"):
-			cfg['username'] = a
-		elif o in ("-m", "--mount"):
-			cfg['mount'] = a
-		elif o in ("-e", "--emails"):
-			cfg['emails'] = True
-		elif o in ("-b", "--browser"):
-			cfg['browser'] = True
-		elif o in ("-d", "--downloads"):
-			cfg['downloads'] = True
-		elif o in ("-s", "--startup"):
-			cfg['startup'] = True
-		elif o in ("-o", "--other"):
-			cfg['other'] = True
-		elif o in ("-p", "--partitions"):
-			cfg['partitions'] = True
-
+	cfg['mount'] = str(results.mount_point)
 	if os.path.isdir(cfg["mount"]):
 		cfg["mount"] = os.path.abspath(cfg["mount"])
 	else:
 		print "Invalid mount directory"
 		sys.exit(1)
 
-	if cfg['username'] == '':
+	if results.username == "":
 		cfg['username'] = []
 		for user in os.listdir(cfg['mount']+'Users'):
 			if user.startswith('.'):
 				pass
 			else:
 				cfg['username'].append(user)
+	else:
+		cfg['username'] = str(results.username)
 
 	return cfg
 
@@ -165,7 +136,7 @@ def get_launch_start_items(username, mount):
 				launch_agents += subprocess.check_output(['ls', '-la', mount+'Users/'+user+'/Library/LaunchAgents']) + "\n"
 	elif isinstance(username, basestring):
 		if os.path.isdir(mount+'Users/'+username+'/Library/LaunchAgents'):
-			launch_agents += user + "\n"
+			launch_agents += username + "\n"
 			launch_agents += subprocess.check_output(['ls', '-la', mount+'Users/'+username+'/Library/LaunchAgents']) + "\n"
 
 	#List files that run at boot
@@ -280,7 +251,7 @@ def get_browser_info(username, mount):
 				if os.path.isdir(mount+'Users/'+username+'/Library/Application Support/Firefox/Profiles/'):
 					profiles = os.listdir(mount+'Users/'+username+'/Library/Application Support/Firefox/Profiles/')
 					firefox_ext += username + "\n"
-					firefox_history += user + "\n"
+					firefox_history += username + "\n"
 					for profile in profiles:
 						if profile.startswith('.'):
 							pass
@@ -421,7 +392,7 @@ def get_downloaded_files(username, mount):
 				cur = conn.cursor()
 				cur.execute("SELECT datetime(LSQuarantineTimeStamp + 978307200,'unixepoch','localtime'), LSQUarantineDataURLString FROM LSQuarantineEvent ORDER BY LSQuarantineTimeStamp ASC")
 				rows = cur.fetchall()
-				downloads += user + ":\n"
+				downloads += username + ":\n"
 				for row in rows:
 					downloads += str(row) + "\n"
 
@@ -499,7 +470,7 @@ def get_bash_history(username, mount):
 				bash_history += str(subprocess.check_output(['cat', mount+'Users/'+user+'/.bash_history']))
 				bash_history += "\n\n\n"
 	elif isinstance(username, basestring):
-		if os.path.isfile(mount+'Users/'+user+'/.bash_history'):
+		if os.path.isfile(mount+'Users/'+username+'/.bash_history'):
 			bash_history += str(subprocess.check_output(['cat', mount+'Users/'+username+'/.bash_history']))
 			bash_history += "\n\n\n"
 	return bash_history
