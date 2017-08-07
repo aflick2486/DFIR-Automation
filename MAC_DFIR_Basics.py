@@ -7,127 +7,19 @@ import sys
 import subprocess
 import re
 import sqlite3
-from getopt import getopt, GetoptError
 
 version = "1.0.1"
 
-# def usage():
-# 	print """MAC DFIR Basics v%s
-#
-# usage: sudo python %s --mount <mount_dir>
-#
-# Specify all artifacts that you would like to gather. Does nothing by default.
-#
-# -a, --all
-# 	Gather all artifact information
-#
-# -b, --browser
-# 	Gather web browser information (history, extensions)
-#
-# -d, --downloads
-# 	Gather information about downloaded files
-#
-# -e, --emails
-# 	Gather email information (From, Subject, Timestamp)
-#
-# -h, --history,
-# 	Gather bash history information
-#
-# -m [path], --mount [path]
-# 	Specify the mount point of the Mac OS Filesystem
-#
-# -o, --other
-# 	Gather basic device software and hardware information
-#
-# -p, --partitions
-# 	Gather information about disks and partitions
-#
-# -s, --startup
-# 	Gather startup item information (LaunchAgents, LaunchDaemons, StartupItems)
-#
-# -u [username], --username [username]
-# 	Specify a username. DEFAULT is all users
-#
-# Examples:
-#
-# $sudo python MAC_DFIR_Basics.py -bdeh
-# 	Gathers information about browser history, disks and partitions, emails, and bash history
-#
-# $sudo python MAC_DFIR_Basics.py -bdeh -m /mnt/mac/ -u root
-# 	Gathers the information from the /mnt/mac/ directory for the root user
-#
-# """%(version,sys.argv[0])
-#
-# def get_args():
-# 	if len(sys.argv[1:]) == 0:
-# 		usage()
-# 		sys.exit(0)
-# 	try:
-# 		opts, args = getopt(sys.argv[1:], 'bdehopsm:u:a', ["mount=", "username=", "all", "history", "emails", "downloads", "other", "browser", "startup", "partitions"])
-#
-# 	except GetoptError as err:
-# 		sys.stdout.write(str(err))
-# 		usage()
-# 		sys.exit(2)
-#
-# 	for o, a in opts:
-# 		cfg = {}
-# 		cfg['mount'] = "/"
-# 		cfg['username'] = ''
-# 		cfg['history'] = False
-# 		cfg['emails'] = False
-# 		cfg['browser'] = False
-# 		cfg['partitions'] = False
-# 		cfg['startup'] = False
-# 		cfg['other'] = False
-# 		cfg['downloads'] = False
-# 		if o in ("-a", "--all"):
-# 			cfg['browser'] = True
-# 			cfg['downloads'] = True
-# 			cfg['emails'] = True
-# 			cfg['history'] = True
-# 			cfg['other'] = True
-# 			cfg['partitions'] = True
-# 			cfg['startup'] = True
-# 		elif o in ("-h", "--history"):
-# 			cfg['history'] = True
-# 		elif o in ("-u", "--username"):
-# 			cfg['username'] = a
-# 		elif o in ("-m", "--mount"):
-# 			cfg['mount'] = a.rstrip()
-# 		elif o in ("-e", "--emails"):
-# 			cfg['emails'] = True
-# 		elif o in ("-b", "--browser"):
-# 			cfg['browser'] = True
-# 		elif o in ("-d", "--downloads"):
-# 			cfg['downloads'] = True
-# 		elif o in ("-s", "--startup"):
-# 			cfg['startup'] = True
-# 		elif o in ("-o", "--other"):
-# 			cfg['other'] = True
-# 		elif o in ("-p", "--partitions"):
-# 			cfg['partitions'] = True
-#
-# 	if os.path.isdir(cfg["mount"]):
-# 		cfg["mount"] = os.path.abspath(cfg["mount"])
-# 	else:
-# 		print "Invalid mount directory"
-# 		sys.exit(1)
-#
-# 	if cfg['username'] == '':
-# 		cfg['username'] = []
-# 		for user in os.listdir(cfg['mount']+'Users'):
-# 			if user.startswith('.'):
-# 				pass
-# 			else:
-# 				cfg['username'].append(user)
-#
-# 	return cfg
-
 def get_args():
 	cfg = {}
-	parser = argparse.ArgumentParser(description="Specify all artifacts that you would like to gather. Does nothing by default.",
-									usage="")
+
+	parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
+		description=("""\
+-----------------------
+ Mac OS DFIR Basics
+ Author: Adam Flickema
+-----------------------
+Specify all artifacts that you would like to gather. Does nothing by default."""))
 
 	parser.add_argument('-a', '--all', action='store_true', dest='all', default=False,
 						help='Gather all artifact information')
@@ -144,7 +36,7 @@ def get_args():
 	parser.add_argument('-e', '--emails', action='store_true', dest='emails', default=False,
 						help="Gather email information (From, Subject, Timestamp)")
 
-	parser.add_argument('-m', '--mount', action='store', dest='input_mount', default="/",
+	parser.add_argument('-m', '--mount', action='store', dest='mount_point', default="/",
 						help="Specify the mount point of the Mac OS Filesystem. Default is / .")
 
 	parser.add_argument('-o', '--other', action='store_true', dest='system_info', default=False,
@@ -156,10 +48,15 @@ def get_args():
 	parser.add_argument('-s', '--startup', action='store_true', dest="startup", default=False,
 						help="Gather startup item information (LaunchAgents, LaunchDaemons, StartupItems)")
 
-	parser.add_argument('-u', '--username', action='store', dest='input_username', default="",
-						help="Specify a username. Default is all users")
+	parser.add_argument('-u', '--username', action='store', dest='username', default="",
+						help="Specify a username. Default is all users.")
 
 	results = parser.parse_args()
+
+	if len(sys.argv[1:]) == 0:
+		parser.print_help()
+		parser.exit()
+		sys.exit(0)
 
 	if results.all == True:
 		cfg['browser'] = True
@@ -168,6 +65,7 @@ def get_args():
 		cfg['history'] = True
 		cfg['other'] = True
 		cfg['partitions'] = True
+		cfg['startup'] = True
 	else:
 		cfg['browser'] = results.browser
 		cfg['downloads'] = results.downloads
@@ -175,15 +73,16 @@ def get_args():
 		cfg['history'] = results.bash_history
 		cfg['other'] = results.system_info
 		cfg['partitions'] = results.disk_parts
+		cfg['startup'] = results.startup
 
-	cfg['mount'] = str(results.input_mount)
+	cfg['mount'] = str(results.mount_point)
 	if os.path.isdir(cfg["mount"]):
 		cfg["mount"] = os.path.abspath(cfg["mount"])
 	else:
 		print "Invalid mount directory"
 		sys.exit(1)
 
-	if results.input_username == "":
+	if results.username == "":
 		cfg['username'] = []
 		for user in os.listdir(cfg['mount']+'Users'):
 			if user.startswith('.'):
@@ -191,7 +90,7 @@ def get_args():
 			else:
 				cfg['username'].append(user)
 	else:
-		cfg['username'] = str(results.input_username)
+		cfg['username'] = str(results.username)
 
 	return cfg
 
@@ -199,7 +98,7 @@ def get_disks_partitions(username, mount):
 	partitions = ''
 	for files in os.listdir(mount+'dev'):
 		if files.startswith("disk"):
-			partitions += subprocess.check_output(['diskutil', 'info', mount+'/dev/'+files])
+			partitions += subprocess.check_output(['diskutil', 'info', mount+'dev/'+files])
 			partitions += "----------------\n"
 		else:
 			pass
@@ -228,27 +127,27 @@ def get_basic_device_info():
 def get_launch_start_items(username, mount):
 	#List files that run at login
 	launch_agents = ''
-	launch_agents += subprocess.check_output(['ls', '-la', mount+'/Library/LaunchAgents']) + "\n"
-	launch_agents += subprocess.check_output(['ls', '-la', mount+'/System/Library/LaunchAgents']) + "\n"
+	launch_agents += subprocess.check_output(['ls', '-la', mount+'Library/LaunchAgents']) + "\n"
+	launch_agents += subprocess.check_output(['ls', '-la', mount+'System/Library/LaunchAgents']) + "\n"
 	if isinstance(username, list):
 		for user in username:
 			if os.path.isdir(mount+'Users/'+user+'/Library/LaunchAgents'):
 				launch_agents += user + "\n"
-				launch_agents += subprocess.check_output(['ls', '-la', mount+'/Users/'+user+'/Library/LaunchAgents']) + "\n"
+				launch_agents += subprocess.check_output(['ls', '-la', mount+'Users/'+user+'/Library/LaunchAgents']) + "\n"
 	elif isinstance(username, basestring):
 		if os.path.isdir(mount+'Users/'+username+'/Library/LaunchAgents'):
-			launch_agents += user + "\n"
-			launch_agents += subprocess.check_output(['ls', '-la', mount+'/Users/'+username+'/Library/LaunchAgents']) + "\n"
+			launch_agents += username + "\n"
+			launch_agents += subprocess.check_output(['ls', '-la', mount+'Users/'+username+'/Library/LaunchAgents']) + "\n"
 
 	#List files that run at boot
 	launch_daemons = ''
-	launch_daemons += subprocess.check_output(['ls', '-la', mount+'/Library/LaunchDaemons']) + "\n"
-	launch_daemons += subprocess.check_output(['ls', '-la', mount+'/System/Library/LaunchDaemons']) + "\n"
+	launch_daemons += subprocess.check_output(['ls', '-la', mount+'Library/LaunchDaemons']) + "\n"
+	launch_daemons += subprocess.check_output(['ls', '-la', mount+'System/Library/LaunchDaemons']) + "\n"
 
 	#List other files that run on startup
 	startup = ''
-	startup += subprocess.check_output(['ls', '-la', mount+'/Library/StartupItems']) + "\n"
-	startup += subprocess.check_output(['ls', '-la', mount+'/System/Library/StartupItems']) + "\n"
+	startup += subprocess.check_output(['ls', '-la', mount+'Library/StartupItems']) + "\n"
+	startup += subprocess.check_output(['ls', '-la', mount+'System/Library/StartupItems']) + "\n"
 
 	results = "Launch Agents\n"
 	results += "----------------\n"
@@ -269,18 +168,18 @@ def get_launch_start_items(username, mount):
 
 def get_browser_info(username, mount):
 	#List all Google Chrome Extensions and History
-	if os.path.isdir(mount+'/Applications/Google Chrome.app/'):
+	if os.path.isdir(mount+'Applications/Google Chrome.app/'):
 		chrome_history = ''
 		chrome_ext = ''
 		if isinstance(username, list):
 			for user in username:
-				if os.path.isdir(mount+'/Users/'+user+'/Library/Application Support/Google/Chrome/Default/Extensions'):
+				if os.path.isdir(mount+'Users/'+user+'/Library/Application Support/Google/Chrome/Default/Extensions'):
 					chrome_ext += user + "\n"
-					chrome_ext += str(os.listdir(mount+'/Users/'+user+'/Library/Application Support/Google/Chrome/Default/Extensions')) + "\n"
+					chrome_ext += str(os.listdir(mount+'Users/'+user+'/Library/Application Support/Google/Chrome/Default/Extensions')) + "\n"
 					conn = None
 
 					try:
-						conn = sqlite3.connect(mount+"/Users/"+user+"/Library/Application Support/Google/Chrome/Default/History")
+						conn = sqlite3.connect(mount+"Users/"+user+"/Library/Application Support/Google/Chrome/Default/History")
 
 						cur = conn.cursor()
 						cur.execute("SELECT datetime(urls.last_visit_time/1000000-11644473600,'unixepoch','localtime'), urls.url, urls.title FROM urls, visits WHERE urls.id = visits.url ORDER BY visits.visit_time ASC")
@@ -295,13 +194,13 @@ def get_browser_info(username, mount):
 						if conn:
 							conn.close()
 		elif isinstance(username, basestring):
-			if os.path.isdir(mount+'/Users/'+username+'/Library/Application Support/Google/Chrome/Default/Extensions'):
+			if os.path.isdir(mount+'Users/'+username+'/Library/Application Support/Google/Chrome/Default/Extensions'):
 				chrome_ext += username + "\n"
-				chrome_ext += str(os.listdir(mount+'/Users/'+username+'/Library/Application Support/Google/Chrome/Default/Extensions')) + "\n"
+				chrome_ext += str(os.listdir(mount+'Users/'+username+'/Library/Application Support/Google/Chrome/Default/Extensions')) + "\n"
 				conn = None
 
 				try:
-					conn = sqlite3.connect(mount+"/Users/"+username+"/Library/Application Support/Google/Chrome/Default/History")
+					conn = sqlite3.connect(mount+"Users/"+username+"/Library/Application Support/Google/Chrome/Default/History")
 
 					cur = conn.cursor()
 					cur.execute("SELECT datetime(urls.last_visit_time/1000000-11644473600,'unixepoch','localtime'), urls.url, urls.title FROM urls, visits WHERE urls.id = visits.url ORDER BY visits.visit_time ASC")
@@ -317,25 +216,25 @@ def get_browser_info(username, mount):
 						conn.close()
 
 	#List all Firefox Extensions and History
-	if os.path.isdir(mount+'/Applications/Firefox.app/'):
+	if os.path.isdir(mount+'Applications/Firefox.app/'):
 			firefox_history = ''
 			firefox_ext = ''
 			if isinstance(username, list):
 				for user in username:
-					if os.path.isdir(mount+'/Users/'+user+'/Library/Application Support/Firefox/Profiles/'):
-						profiles = os.listdir(mount+'/Users/'+user+'/Library/Application Support/Firefox/Profiles/')
+					if os.path.isdir(mount+'Users/'+user+'/Library/Application Support/Firefox/Profiles/'):
+						profiles = os.listdir(mount+'Users/'+user+'/Library/Application Support/Firefox/Profiles/')
 						firefox_ext += user + "\n"
 						firefox_history += user + "\n"
 						for profile in profiles:
 							if profile.startswith('.'):
 								pass
 							else:
-								if os.path.isdir(mount+'/Users/'+user+'/Library/Application Support/Firefox/Profiles/'+profile+'/extensions'):
-									firefox_ext += str(os.listdir(mount+'/Users/'+user+'/Library/Application Support/Firefox/Profiles/'+profile+'/extensions')) + "\n"
+								if os.path.isdir(mount+'Users/'+user+'/Library/Application Support/Firefox/Profiles/'+profile+'/extensions'):
+									firefox_ext += str(os.listdir(mount+'Users/'+user+'/Library/Application Support/Firefox/Profiles/'+profile+'/extensions')) + "\n"
 									conn = None
 
 									try:
-										conn = sqlite3.connect(mount+"/Users/"+user+"/Library/Application Support/Firefox/Profiles/"+profile+"/places.sqlite")
+										conn = sqlite3.connect(mount+"Users/"+user+"/Library/Application Support/Firefox/Profiles/"+profile+"/places.sqlite")
 
 										cur = conn.cursor()
 										cur.execute("SELECT datetime(moz_historyvisits.visit_date/1000000,'unixepoch','localtime'), moz_places.url, moz_places.title, moz_places.rev_host FROM moz_places, moz_historyvisits WHERE moz_places.id = moz_historyvisits.place_id ORDER BY moz_historyvisits.visit_date ASC")
@@ -349,20 +248,20 @@ def get_browser_info(username, mount):
 										if conn:
 											conn.close()
 			elif isinstance(username, basestring):
-				if os.path.isdir(mount+'/Users/'+username+'/Library/Application Support/Firefox/Profiles/'):
-					profiles = os.listdir(mount+'/Users/'+username+'/Library/Application Support/Firefox/Profiles/')
+				if os.path.isdir(mount+'Users/'+username+'/Library/Application Support/Firefox/Profiles/'):
+					profiles = os.listdir(mount+'Users/'+username+'/Library/Application Support/Firefox/Profiles/')
 					firefox_ext += username + "\n"
-					firefox_history += user + "\n"
+					firefox_history += username + "\n"
 					for profile in profiles:
 						if profile.startswith('.'):
 							pass
 						else:
-							if os.path.isdir(mount+'/Users/'+username+'/Library/Application Support/Firefox/Profiles/'+profile+'/extensions'):
-								firefox_ext += str(os.listdir(mount+'/Users/'+username+'/Library/Application Support/Firefox/Profiles/'+profile+'/extensions')) + "\n"
+							if os.path.isdir(mount+'Users/'+username+'/Library/Application Support/Firefox/Profiles/'+profile+'/extensions'):
+								firefox_ext += str(os.listdir(mount+'Users/'+username+'/Library/Application Support/Firefox/Profiles/'+profile+'/extensions')) + "\n"
 								conn = None
 
 								try:
-									conn = sqlite3.connect(mount+"/Users/"+username+"/Library/Application Support/Firefox/Profiles/"+profile+"/places.sqlite")
+									conn = sqlite3.connect(mount+"Users/"+username+"/Library/Application Support/Firefox/Profiles/"+profile+"/places.sqlite")
 
 									cur = conn.cursor()
 									cur.execute("SELECT datetime(moz_historyvisits.visit_date/1000000,'unixepoch','localtime'), moz_places.url, moz_places.title, moz_places.rev_host FROM moz_places, moz_historyvisits WHERE moz_places.id = moz_historyvisits.place_id ORDER BY moz_historyvisits.visit_date ASC")
@@ -377,21 +276,21 @@ def get_browser_info(username, mount):
 										conn.close()
 
 		#List all Safari Extensions and History
-	if os.path.isdir(mount+'/Applications/Safari.app/'):
+	if os.path.isdir(mount+'Applications/Safari.app/'):
 			safari_history = ''
 			safari_ext = ''
 
 			if isinstance(username, list):
 				for user in username:
-					if os.path.isdir(mount+'/Users/'+user+'/Library/Safari/Extensions'):
+					if os.path.isdir(mount+'Users/'+user+'/Library/Safari/Extensions'):
 						safari_ext += user + "\n"
-						for file in os.listdir(mount+'/Users/'+user+'/Library/Safari/Extensions'):
+						for file in os.listdir(mount+'Users/'+user+'/Library/Safari/Extensions'):
 							if '.safariextz' in file:
 								safari_ext += str(file) + "\n"
 						conn = None
 
 						try:
-							conn = sqlite3.connect(mount+"/Users/"+user+"/Library/Safari/History.db")
+							conn = sqlite3.connect(mount+"Users/"+user+"/Library/Safari/History.db")
 
 							cur = conn.cursor()
 							cur.execute("SELECT datetime(history_visits.visit_time + 978307200,'unixepoch','localtime'), history_items.url, history_visits.title FROM history_visits, history_items WHERE history_items.id = history_visits.history_item ORDER BY history_visits.visit_time ASC")
@@ -406,15 +305,15 @@ def get_browser_info(username, mount):
 							if conn:
 								conn.close()
 			elif isinstance(username, basestring):
-				if os.path.isdir(mount+'/Users/'+username+'/Library/Safari/Extensions'):
+				if os.path.isdir(mount+'Users/'+username+'/Library/Safari/Extensions'):
 					safari_ext += username + "\n"
-					for file in os.listdir(mount+'/Users/'+username+'/Library/Safari/Extensions'):
+					for file in os.listdir(mount+'Users/'+username+'/Library/Safari/Extensions'):
 						if '.safariextz' in file:
 							safari_ext += str(file) + "\n"
 					conn = None
 
 					try:
-						conn = sqlite3.connect(mount+"/Users/"+username+"/Library/Safari/History.db")
+						conn = sqlite3.connect(mount+"Users/"+username+"/Library/Safari/History.db")
 
 						cur = conn.cursor()
 						cur.execute("SELECT datetime(history_visits.visit_time + 978307200,'unixepoch','localtime'), history_items.url, history_visits.title FROM history_visits, history_items WHERE history_items.id = history_visits.history_item ORDER BY history_visits.visit_time ASC")
@@ -493,7 +392,7 @@ def get_downloaded_files(username, mount):
 				cur = conn.cursor()
 				cur.execute("SELECT datetime(LSQuarantineTimeStamp + 978307200,'unixepoch','localtime'), LSQUarantineDataURLString FROM LSQuarantineEvent ORDER BY LSQuarantineTimeStamp ASC")
 				rows = cur.fetchall()
-				downloads += user + ":\n"
+				downloads += username + ":\n"
 				for row in rows:
 					downloads += str(row) + "\n"
 
@@ -512,7 +411,7 @@ def get_emails(username, mount):
 	emails = ''
 	if isinstance(username, list):
 		for user in username:
-			rootdir = mount+"/Users/"+user+"/Library/Mail"
+			rootdir = mount+"Users/"+user+"/Library/Mail"
 			for subdir, dirs, files in os.walk(rootdir):
 				for file in files:
 					if "[Gmail]" in subdir:
@@ -536,7 +435,7 @@ def get_emails(username, mount):
 									if subject:
 										emails += subject.group() + "\n"
 	elif isinstance(username, basestring):
-		rootdir = mount+"/Users/"+username+"/Library/Mail"
+		rootdir = mount+"Users/"+username+"/Library/Mail"
 		for subdir, dirs, files in os.walk(rootdir):
 			for file in files:
 				if "[Gmail]" in subdir:
@@ -565,64 +464,58 @@ def get_emails(username, mount):
 
 def get_bash_history(username, mount):
 	bash_history = ''
-	print username
 	if isinstance(username, list):
 		for user in username:
-			if os.path.isfile(mount+'/Users/'+user+'/.bash_history'):
-				bash_history += str(subprocess.check_output(['cat', mount+'/Users/'+user+'/.bash_history']))
+			if os.path.isfile(mount+'Users/'+user+'/.bash_history'):
+				bash_history += str(subprocess.check_output(['cat', mount+'Users/'+user+'/.bash_history']))
 				bash_history += "\n\n\n"
 	elif isinstance(username, basestring):
-		path = mount+'/Users/'+user+'/.bash_history'
-		print path
-		if os.path.isfile(mount+'/Users/'+user+'/.bash_history'):
-			bash_history += str(subprocess.check_output(['cat', mount+'/Users/'+username+'/.bash_history']))
+		if os.path.isfile(mount+'Users/'+username+'/.bash_history'):
+			bash_history += str(subprocess.check_output(['cat', mount+'Users/'+username+'/.bash_history']))
 			bash_history += "\n\n\n"
 	return bash_history
 
 
 if __name__ == '__main__':
 	cfg = get_args()
-	# results = ''
-	print cfg
-	#
-	# if cfg['browser']:
-	# 	results += "Browser Information\n"
-	# 	results += "------------------------------------\n"
-	# 	results += get_browser_info(cfg['username'], cfg['mount'])
-	# 	results += "\n------------------------------------\n\n"
-	# if cfg['downloads']:
-	# 	results += "Downloaded Files Information\n"
-	# 	results += "------------------------------------\n"
-	# 	results += get_downloaded_files(cfg['username'], cfg['mount'])
-	# 	results += "\n------------------------------------\n\n"
-	# if cfg['emails']:
-	# 	results += "Email Information\n"
-	# 	results += "------------------------------------\n"
-	# 	results += get_emails(cfg['username'], cfg['mount'])
-	# 	results += "\n------------------------------------\n\n"
-	# if cfg['history']:
-	# 	print cfg['username']
-	# 	results += "Bash History Log\n"
-	# 	results += "------------------------------------\n"
-	# 	results += get_bash_history(cfg['username'], cfg['mount'])
-	# 	results += "\n------------------------------------\n\n"
-	# 	print results
-	# if cfg['other']:
-	# 	results += "Basic Device Software and Hardware Information\n"
-	# 	results += "------------------------------------\n"
-	# 	results += get_basic_device_info()
-	# 	results += "\n------------------------------------\n\n"
-	# if cfg['partitions']:
-	# 	results += "Disk and Partition Information\n"
-	# 	results += "------------------------------------\n"
-	# 	results += get_disks_partitions(cfg['username'], cfg['mount'])
-	# 	results += "\n------------------------------------\n\n"
-	# if cfg['startup']:
-	# 	results += "Startup Items Information\n"
-	# 	results += "------------------------------------\n"
-	# 	results += get_launch_start_items(cfg['username'], cfg['mount'])
-	# 	results += "\n------------------------------------\n\n"
-	#
-	# date = datetime.datetime.strftime(datetime.datetime.now(), '%Y-%m-%d')
-	# output_file = open("MAC_DFIR_Basics_Information_"+date+".txt", "w")
-	# output_file.write(results)
+	results = ''
+
+	if cfg['browser']:
+		results += "Browser Information\n"
+		results += "------------------------------------\n"
+		results += get_browser_info(cfg['username'], cfg['mount'])
+		results += "\n------------------------------------\n\n"
+	if cfg['downloads']:
+		results += "Downloaded Files Information\n"
+		results += "------------------------------------\n"
+		results += get_downloaded_files(cfg['username'], cfg['mount'])
+		results += "\n------------------------------------\n\n"
+	if cfg['emails']:
+		results += "Email Information\n"
+		results += "------------------------------------\n"
+		results += get_emails(cfg['username'], cfg['mount'])
+		results += "\n------------------------------------\n\n"
+	if cfg['history']:
+		results += "Bash History Log\n"
+		results += "------------------------------------\n"
+		results += get_bash_history(cfg['username'], cfg['mount'])
+		results += "\n------------------------------------\n\n"
+	if cfg['other']:
+		results += "Basic Device Software and Hardware Information\n"
+		results += "------------------------------------\n"
+		results += get_basic_device_info()
+		results += "\n------------------------------------\n\n"
+	if cfg['partitions']:
+		results += "Disk and Partition Information\n"
+		results += "------------------------------------\n"
+		results += get_disks_partitions(cfg['username'], cfg['mount'])
+		results += "\n------------------------------------\n\n"
+	if cfg['startup']:
+		results += "Startup Items Information\n"
+		results += "------------------------------------\n"
+		results += get_launch_start_items(cfg['username'], cfg['mount'])
+		results += "\n------------------------------------\n\n"
+
+	date = datetime.datetime.strftime(datetime.datetime.now(), '%Y-%m-%d')
+	output_file = open("MAC_DFIR_Basics_Information_"+date+".txt", "w")
+	output_file.write(results)
