@@ -36,7 +36,7 @@ Specify all artifacts that you would like to gather. Does nothing by default."""
 	parser.add_argument('-e', '--emails', action='store_true', dest='emails', default=False,
 						help="Gather email information (From, Subject, Timestamp)")
 
-	parser.add_argument('-m', '--mount', action='store', dest='mount_point', default="/",
+	parser.add_argument('-m', '--mount', action='store', dest='mount_point', default="",
 						help="Specify the mount point of the Mac OS Filesystem. Default is / .")
 
 	parser.add_argument('-o', '--other', action='store_true', dest='system_info', default=False,
@@ -75,12 +75,18 @@ Specify all artifacts that you would like to gather. Does nothing by default."""
 		cfg['partitions'] = results.disk_parts
 		cfg['startup'] = results.startup
 
+#Determine if file system is MacOS
+# /System/Library/CoreServices/SystemVersion.plist
+# Grab version number with regex
+# <key>ProductVersion<\/key>\s*<string>(.*)<\/string>
+
 	cfg['mount'] = str(results.mount_point)
-	if os.path.isdir(cfg["mount"]):
-		cfg["mount"] = os.path.abspath(cfg["mount"])
-	else:
-		print "Invalid mount directory"
-		sys.exit(1)
+	if cfg['mount'] != "":
+		if os.path.isdir(cfg["mount"]):
+			cfg["mount"] = os.path.abspath(cfg["mount"])
+		else:
+			print "Invalid mount directory"
+			sys.exit(1)
 
 	if results.username == "":
 		cfg['username'] = []
@@ -127,27 +133,27 @@ def get_basic_device_info():
 def get_launch_start_items(username, mount):
 	#List files that run at login
 	launch_agents = ''
-	launch_agents += subprocess.check_output(['ls', '-la', mount+'Library/LaunchAgents']) + "\n"
-	launch_agents += subprocess.check_output(['ls', '-la', mount+'System/Library/LaunchAgents']) + "\n"
+	launch_agents += subprocess.check_output(['ls', '-la', mount+'/Library/LaunchAgents']) + "\n"
+	launch_agents += subprocess.check_output(['ls', '-la', mount+'/System/Library/LaunchAgents']) + "\n"
 	if isinstance(username, list):
 		for user in username:
-			if os.path.isdir(mount+'Users/'+user+'/Library/LaunchAgents'):
+			if os.path.isdir(mount+'/Users/'+user+'/Library/LaunchAgents'):
 				launch_agents += user + "\n"
-				launch_agents += subprocess.check_output(['ls', '-la', mount+'Users/'+user+'/Library/LaunchAgents']) + "\n"
+				launch_agents += subprocess.check_output(['ls', '-la', mount+'/Users/'+user+'/Library/LaunchAgents']) + "\n"
 	elif isinstance(username, basestring):
-		if os.path.isdir(mount+'Users/'+username+'/Library/LaunchAgents'):
+		if os.path.isdir(mount+'/Users/'+username+'/Library/LaunchAgents'):
 			launch_agents += username + "\n"
-			launch_agents += subprocess.check_output(['ls', '-la', mount+'Users/'+username+'/Library/LaunchAgents']) + "\n"
+			launch_agents += subprocess.check_output(['ls', '-la', mount+'/Users/'+username+'/Library/LaunchAgents']) + "\n"
 
 	#List files that run at boot
 	launch_daemons = ''
-	launch_daemons += subprocess.check_output(['ls', '-la', mount+'Library/LaunchDaemons']) + "\n"
-	launch_daemons += subprocess.check_output(['ls', '-la', mount+'System/Library/LaunchDaemons']) + "\n"
+	launch_daemons += subprocess.check_output(['ls', '-la', mount+'/Library/LaunchDaemons']) + "\n"
+	launch_daemons += subprocess.check_output(['ls', '-la', mount+'/System/Library/LaunchDaemons']) + "\n"
 
 	#List other files that run on startup
 	startup = ''
-	startup += subprocess.check_output(['ls', '-la', mount+'Library/StartupItems']) + "\n"
-	startup += subprocess.check_output(['ls', '-la', mount+'System/Library/StartupItems']) + "\n"
+	startup += subprocess.check_output(['ls', '-la', mount+'/Library/StartupItems']) + "\n"
+	startup += subprocess.check_output(['ls', '-la', mount+'/System/Library/StartupItems']) + "\n"
 
 	results = "Launch Agents\n"
 	results += "----------------\n"
@@ -168,18 +174,18 @@ def get_launch_start_items(username, mount):
 
 def get_browser_info(username, mount):
 	#List all Google Chrome Extensions and History
-	if os.path.isdir(mount+'Applications/Google Chrome.app/'):
+	if os.path.isdir(mount+'/Applications/Google Chrome.app/'):
 		chrome_history = ''
 		chrome_ext = ''
 		if isinstance(username, list):
 			for user in username:
-				if os.path.isdir(mount+'Users/'+user+'/Library/Application Support/Google/Chrome/Default/Extensions'):
+				if os.path.isdir(mount+'/Users/'+user+'/Library/Application Support/Google/Chrome/Default/Extensions'):
 					chrome_ext += user + "\n"
-					chrome_ext += str(os.listdir(mount+'Users/'+user+'/Library/Application Support/Google/Chrome/Default/Extensions')) + "\n"
+					chrome_ext += str(os.listdir(mount+'/Users/'+user+'/Library/Application Support/Google/Chrome/Default/Extensions')) + "\n"
 					conn = None
 
 					try:
-						conn = sqlite3.connect(mount+"Users/"+user+"/Library/Application Support/Google/Chrome/Default/History")
+						conn = sqlite3.connect(mount+"/Users/"+user+"/Library/Application Support/Google/Chrome/Default/History")
 
 						cur = conn.cursor()
 						cur.execute("SELECT datetime(urls.last_visit_time/1000000-11644473600,'unixepoch','localtime'), urls.url, urls.title FROM urls, visits WHERE urls.id = visits.url ORDER BY visits.visit_time ASC")
@@ -194,13 +200,13 @@ def get_browser_info(username, mount):
 						if conn:
 							conn.close()
 		elif isinstance(username, basestring):
-			if os.path.isdir(mount+'Users/'+username+'/Library/Application Support/Google/Chrome/Default/Extensions'):
+			if os.path.isdir(mount+'/Users/'+username+'/Library/Application Support/Google/Chrome/Default/Extensions'):
 				chrome_ext += username + "\n"
-				chrome_ext += str(os.listdir(mount+'Users/'+username+'/Library/Application Support/Google/Chrome/Default/Extensions')) + "\n"
+				chrome_ext += str(os.listdir(mount+'/Users/'+username+'/Library/Application Support/Google/Chrome/Default/Extensions')) + "\n"
 				conn = None
 
 				try:
-					conn = sqlite3.connect(mount+"Users/"+username+"/Library/Application Support/Google/Chrome/Default/History")
+					conn = sqlite3.connect(mount+"/Users/"+username+"/Library/Application Support/Google/Chrome/Default/History")
 
 					cur = conn.cursor()
 					cur.execute("SELECT datetime(urls.last_visit_time/1000000-11644473600,'unixepoch','localtime'), urls.url, urls.title FROM urls, visits WHERE urls.id = visits.url ORDER BY visits.visit_time ASC")
@@ -216,25 +222,25 @@ def get_browser_info(username, mount):
 						conn.close()
 
 	#List all Firefox Extensions and History
-	if os.path.isdir(mount+'Applications/Firefox.app/'):
+	if os.path.isdir(mount+'/Applications/Firefox.app/'):
 			firefox_history = ''
 			firefox_ext = ''
 			if isinstance(username, list):
 				for user in username:
-					if os.path.isdir(mount+'Users/'+user+'/Library/Application Support/Firefox/Profiles/'):
-						profiles = os.listdir(mount+'Users/'+user+'/Library/Application Support/Firefox/Profiles/')
+					if os.path.isdir(mount+'/Users/'+user+'/Library/Application Support/Firefox/Profiles/'):
+						profiles = os.listdir(mount+'/Users/'+user+'/Library/Application Support/Firefox/Profiles/')
 						firefox_ext += user + "\n"
 						firefox_history += user + "\n"
 						for profile in profiles:
 							if profile.startswith('.'):
 								pass
 							else:
-								if os.path.isdir(mount+'Users/'+user+'/Library/Application Support/Firefox/Profiles/'+profile+'/extensions'):
-									firefox_ext += str(os.listdir(mount+'Users/'+user+'/Library/Application Support/Firefox/Profiles/'+profile+'/extensions')) + "\n"
+								if os.path.isdir(mount+'/Users/'+user+'/Library/Application Support/Firefox/Profiles/'+profile+'/extensions'):
+									firefox_ext += str(os.listdir(mount+'/Users/'+user+'/Library/Application Support/Firefox/Profiles/'+profile+'/extensions')) + "\n"
 									conn = None
 
 									try:
-										conn = sqlite3.connect(mount+"Users/"+user+"/Library/Application Support/Firefox/Profiles/"+profile+"/places.sqlite")
+										conn = sqlite3.connect(mount+"/Users/"+user+"/Library/Application Support/Firefox/Profiles/"+profile+"/places.sqlite")
 
 										cur = conn.cursor()
 										cur.execute("SELECT datetime(moz_historyvisits.visit_date/1000000,'unixepoch','localtime'), moz_places.url, moz_places.title, moz_places.rev_host FROM moz_places, moz_historyvisits WHERE moz_places.id = moz_historyvisits.place_id ORDER BY moz_historyvisits.visit_date ASC")
@@ -248,20 +254,20 @@ def get_browser_info(username, mount):
 										if conn:
 											conn.close()
 			elif isinstance(username, basestring):
-				if os.path.isdir(mount+'Users/'+username+'/Library/Application Support/Firefox/Profiles/'):
-					profiles = os.listdir(mount+'Users/'+username+'/Library/Application Support/Firefox/Profiles/')
+				if os.path.isdir(mount+'/Users/'+username+'/Library/Application Support/Firefox/Profiles/'):
+					profiles = os.listdir(mount+'/Users/'+username+'/Library/Application Support/Firefox/Profiles/')
 					firefox_ext += username + "\n"
 					firefox_history += username + "\n"
 					for profile in profiles:
 						if profile.startswith('.'):
 							pass
 						else:
-							if os.path.isdir(mount+'Users/'+username+'/Library/Application Support/Firefox/Profiles/'+profile+'/extensions'):
-								firefox_ext += str(os.listdir(mount+'Users/'+username+'/Library/Application Support/Firefox/Profiles/'+profile+'/extensions')) + "\n"
+							if os.path.isdir(mount+'/Users/'+username+'/Library/Application Support/Firefox/Profiles/'+profile+'/extensions'):
+								firefox_ext += str(os.listdir(mount+'/Users/'+username+'/Library/Application Support/Firefox/Profiles/'+profile+'/extensions')) + "\n"
 								conn = None
 
 								try:
-									conn = sqlite3.connect(mount+"Users/"+username+"/Library/Application Support/Firefox/Profiles/"+profile+"/places.sqlite")
+									conn = sqlite3.connect(mount+"/Users/"+username+"/Library/Application Support/Firefox/Profiles/"+profile+"/places.sqlite")
 
 									cur = conn.cursor()
 									cur.execute("SELECT datetime(moz_historyvisits.visit_date/1000000,'unixepoch','localtime'), moz_places.url, moz_places.title, moz_places.rev_host FROM moz_places, moz_historyvisits WHERE moz_places.id = moz_historyvisits.place_id ORDER BY moz_historyvisits.visit_date ASC")
@@ -276,21 +282,21 @@ def get_browser_info(username, mount):
 										conn.close()
 
 		#List all Safari Extensions and History
-	if os.path.isdir(mount+'Applications/Safari.app/'):
+	if os.path.isdir(mount+'/Applications/Safari.app/'):
 			safari_history = ''
 			safari_ext = ''
 
 			if isinstance(username, list):
 				for user in username:
-					if os.path.isdir(mount+'Users/'+user+'/Library/Safari/Extensions'):
+					if os.path.isdir(mount+'/Users/'+user+'/Library/Safari/Extensions'):
 						safari_ext += user + "\n"
-						for file in os.listdir(mount+'Users/'+user+'/Library/Safari/Extensions'):
+						for file in os.listdir(mount+'/Users/'+user+'/Library/Safari/Extensions'):
 							if '.safariextz' in file:
 								safari_ext += str(file) + "\n"
 						conn = None
 
 						try:
-							conn = sqlite3.connect(mount+"Users/"+user+"/Library/Safari/History.db")
+							conn = sqlite3.connect(mount+"/Users/"+user+"/Library/Safari/History.db")
 
 							cur = conn.cursor()
 							cur.execute("SELECT datetime(history_visits.visit_time + 978307200,'unixepoch','localtime'), history_items.url, history_visits.title FROM history_visits, history_items WHERE history_items.id = history_visits.history_item ORDER BY history_visits.visit_time ASC")
@@ -305,15 +311,15 @@ def get_browser_info(username, mount):
 							if conn:
 								conn.close()
 			elif isinstance(username, basestring):
-				if os.path.isdir(mount+'Users/'+username+'/Library/Safari/Extensions'):
+				if os.path.isdir(mount+'/Users/'+username+'/Library/Safari/Extensions'):
 					safari_ext += username + "\n"
-					for file in os.listdir(mount+'Users/'+username+'/Library/Safari/Extensions'):
+					for file in os.listdir(mount+'/Users/'+username+'/Library/Safari/Extensions'):
 						if '.safariextz' in file:
 							safari_ext += str(file) + "\n"
 					conn = None
 
 					try:
-						conn = sqlite3.connect(mount+"Users/"+username+"/Library/Safari/History.db")
+						conn = sqlite3.connect(mount+"/Users/"+username+"/Library/Safari/History.db")
 
 						cur = conn.cursor()
 						cur.execute("SELECT datetime(history_visits.visit_time + 978307200,'unixepoch','localtime'), history_items.url, history_visits.title FROM history_visits, history_items WHERE history_items.id = history_visits.history_item ORDER BY history_visits.visit_time ASC")
@@ -411,7 +417,7 @@ def get_emails(username, mount):
 	emails = ''
 	if isinstance(username, list):
 		for user in username:
-			rootdir = mount+"Users/"+user+"/Library/Mail"
+			rootdir = mount+"/Users/"+user+"/Library/Mail"
 			for subdir, dirs, files in os.walk(rootdir):
 				for file in files:
 					if "[Gmail]" in subdir:
@@ -435,7 +441,7 @@ def get_emails(username, mount):
 									if subject:
 										emails += subject.group() + "\n"
 	elif isinstance(username, basestring):
-		rootdir = mount+"Users/"+username+"/Library/Mail"
+		rootdir = mount+"/Users/"+username+"/Library/Mail"
 		for subdir, dirs, files in os.walk(rootdir):
 			for file in files:
 				if "[Gmail]" in subdir:
@@ -466,12 +472,12 @@ def get_bash_history(username, mount):
 	bash_history = ''
 	if isinstance(username, list):
 		for user in username:
-			if os.path.isfile(mount+'Users/'+user+'/.bash_history'):
-				bash_history += str(subprocess.check_output(['cat', mount+'Users/'+user+'/.bash_history']))
+			if os.path.isfile(mount+'/Users/'+user+'/.bash_history'):
+				bash_history += str(subprocess.check_output(['cat', mount+'/Users/'+user+'/.bash_history']))
 				bash_history += "\n\n\n"
 	elif isinstance(username, basestring):
-		if os.path.isfile(mount+'Users/'+username+'/.bash_history'):
-			bash_history += str(subprocess.check_output(['cat', mount+'Users/'+username+'/.bash_history']))
+		if os.path.isfile(mount+'/Users/'+username+'/.bash_history'):
+			bash_history += str(subprocess.check_output(['cat', mount+'/Users/'+username+'/.bash_history']))
 			bash_history += "\n\n\n"
 	return bash_history
 
