@@ -1,6 +1,6 @@
 # DFIR-Automation
 
-Tested on MacOS Sierra 10.12.6.
+Tested on MacOS Sierra & MacOS High Sierra
 
 Need to test a Mac forensics image.
 
